@@ -1,5 +1,5 @@
 [package]
-name = "timew-report-rs"
+name = "timewarrior-report-rs"
 version = "0.1.0"
 edition = "2018"
 
