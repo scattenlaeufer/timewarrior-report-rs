@@ -1,9 +1,22 @@
-use std::io::{self, BufRead, Read};
+use std::io::{self, BufRead};
 
 fn main() -> io::Result<()> {
-    let mut input = String::new();
+    let mut config = String::new();
+    let mut sessions = String::new();
+    let mut config_done = false;
     for line in io::stdin().lock().lines() {
-        println!("{:?}", line.unwrap());
+        let raw_line = line.unwrap();
+        if raw_line == "" {
+            config_done = true;
+        } else {
+            if !config_done {
+                config = format!("{}\n{}", config, raw_line);
+            } else {
+                sessions = format!("{}{}", sessions, raw_line);
+            }
+        }
     }
+    println!("{}", config);
+    println!("{}", sessions);
     Ok(())
 }
