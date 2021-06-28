@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "timewarrior-report"
+name = "timewarrior_report"
 version = "0.1.0"
