@@ -1,9 +1,13 @@
+use chrono::prelude::*;
+use serde::Deserialize;
+use std::cmp::Ordering;
 use std::fmt;
 use std::io::{self, BufRead};
 
 #[derive(Debug)]
 pub enum ReportError {
     IO(String),
+    SerdeJson(String),
 }
 
 impl std::error::Error for ReportError {}
@@ -12,6 +16,7 @@ impl fmt::Display for ReportError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ReportError::IO(e) => write!(f, "IOError: {}", e),
+            ReportError::SerdeJson(e) => write!(f, "SerdeJsonError: {}", e),
         }
     }
 }
@@ -22,23 +27,90 @@ impl From<io::Error> for ReportError {
     }
 }
 
+impl From<serde_json::Error> for ReportError {
+    fn from(error: serde_json::Error) -> Self {
+        ReportError::SerdeJson(error.to_string())
+    }
+}
+
+mod my_date_format {
+    use chrono::{DateTime, Local, TimeZone, Utc};
+    use serde::{self, Deserialize, Deserializer};
+
+    const FORMAT: &str = "%Y%m%dT%H%M%SZ";
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Local>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Utc
+            .datetime_from_str(&s, FORMAT)
+            .map_err(serde::de::Error::custom)?
+            .with_timezone(&Local))
+    }
+}
+
+fn default_end_time() -> DateTime<Local> {
+    Local::now()
+}
+
+#[derive(Debug, Deserialize, Eq)]
+struct Session {
+    id: usize,
+    #[serde(with = "my_date_format")]
+    start: DateTime<Local>,
+    #[serde(with = "my_date_format")]
+    #[serde(default = "default_end_time")]
+    end: DateTime<Local>,
+    tags: Vec<String>,
+    annotation: Option<String>,
+}
+
+impl PartialEq for Session {
+    fn eq(&self, other: &Self) -> bool {
+        self.start == other.start
+            && self.end == other.end
+            && self.id == other.id
+            && self.tags == other.tags
+            && self.annotation == other.annotation
+    }
+}
+
+impl Ord for Session {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl PartialOrd for Session {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
+impl Session {
+    fn from_json(data: &str) -> Result<Vec<Session>, ReportError> {
+        Ok(serde_json::from_str::<Vec<Session>>(data)?)
+    }
+}
+
 pub fn run() -> Result<(), ReportError> {
     let mut config = String::new();
-    let mut sessions = String::new();
+    let mut sessions_raw = String::new();
     let mut config_done = false;
     for line in io::stdin().lock().lines() {
         let raw_line = line?;
-        if raw_line == "" {
+        if raw_line.is_empty() {
             config_done = true;
+        } else if !config_done {
+            config = format!("{}\n{}", config, raw_line);
         } else {
-            if !config_done {
-                config = format!("{}\n{}", config, raw_line);
-            } else {
-                sessions = format!("{}{}", sessions, raw_line);
-            }
+            sessions_raw = format!("{}{}", sessions_raw, raw_line);
         }
     }
     println!("{}", config);
-    println!("{}", sessions);
+    let sessions = Session::from_json(&sessions_raw)?;
+    println!("{:#?}", sessions);
     Ok(())
 }
