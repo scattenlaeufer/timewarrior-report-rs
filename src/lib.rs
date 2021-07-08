@@ -65,7 +65,7 @@ pub struct TimewarriorData {
 }
 
 #[derive(Debug, Deserialize, Eq)]
-struct Session {
+pub struct Session {
     id: usize,
     #[serde(with = "my_date_format")]
     start: DateTime<Local>,
