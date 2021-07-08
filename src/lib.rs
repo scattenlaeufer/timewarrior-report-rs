@@ -8,6 +8,7 @@ use std::io::{self, BufRead};
 pub enum ReportError {
     IO(String),
     SerdeJson(String),
+    Other(String),
 }
 
 impl std::error::Error for ReportError {}
@@ -17,6 +18,7 @@ impl fmt::Display for ReportError {
         match self {
             ReportError::IO(e) => write!(f, "IOError: {}", e),
             ReportError::SerdeJson(e) => write!(f, "SerdeJsonError: {}", e),
+            ReportError::Other(e) => write!(f, "Other Error: {}", e),
         }
     }
 }
@@ -53,6 +55,13 @@ mod my_date_format {
 
 fn default_end_time() -> DateTime<Local> {
     Local::now()
+}
+
+#[derive(Debug)]
+pub struct TimewarriorData {
+    // TODO: Make this a HashMap to be actually useful
+    config: String,
+    sessions: Vec<Session>,
 }
 
 #[derive(Debug, Deserialize, Eq)]
@@ -95,7 +104,7 @@ impl Session {
     }
 }
 
-pub fn run() -> Result<(), ReportError> {
+pub fn get_data() -> Result<TimewarriorData, ReportError> {
     let mut config = String::new();
     let mut sessions_raw = String::new();
     let mut config_done = false;
@@ -109,8 +118,15 @@ pub fn run() -> Result<(), ReportError> {
             sessions_raw = format!("{}{}", sessions_raw, raw_line);
         }
     }
-    println!("{}", config);
-    let sessions = Session::from_json(&sessions_raw)?;
-    println!("{:#?}", sessions);
+
+    Ok(TimewarriorData {
+        config,
+        sessions: Session::from_json(&sessions_raw)?,
+    })
+}
+
+pub fn run() -> Result<(), ReportError> {
+    let data = get_data()?;
+    dbg!(data);
     Ok(())
 }
