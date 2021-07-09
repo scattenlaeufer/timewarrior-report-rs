@@ -60,20 +60,20 @@ fn default_end_time() -> DateTime<Local> {
 #[derive(Debug)]
 pub struct TimewarriorData {
     // TODO: Make this a HashMap to be actually useful
-    config: String,
-    sessions: Vec<Session>,
+    pub config: String,
+    pub sessions: Vec<Session>,
 }
 
 #[derive(Debug, Deserialize, Eq)]
 pub struct Session {
-    id: usize,
+    pub id: usize,
     #[serde(with = "my_date_format")]
-    start: DateTime<Local>,
+    pub start: DateTime<Local>,
     #[serde(with = "my_date_format")]
     #[serde(default = "default_end_time")]
-    end: DateTime<Local>,
-    tags: Vec<String>,
-    annotation: Option<String>,
+    pub end: DateTime<Local>,
+    pub tags: Vec<String>,
+    pub annotation: Option<String>,
 }
 
 impl PartialEq for Session {
