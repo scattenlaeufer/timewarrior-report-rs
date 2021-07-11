@@ -73,14 +73,26 @@ mod my_optional_date_format {
     }
 }
 
-#[derive(Debug)]
+/// A representation of the data within the report
+#[derive(Debug, Eq)]
 pub struct TimewarriorData {
+    /// The configurations passed to the report
     pub config: HashMap<String, String>,
+    /// A vector of all tracked sessions within the report
     pub sessions: Vec<Session>,
 }
 
+impl PartialEq for TimewarriorData {
+    fn eq(&self, other: &Self) -> bool {
+        self.config == other.config && self.sessions == other.sessions
+    }
+}
+
 impl TimewarriorData {
-    pub fn from_std() -> Result<Self, ReportError> {
+    /// Read the report from standard input
+    ///
+    /// This should be the usual way to read the report data.
+    pub fn from_stdin() -> Result<Self, ReportError> {
         let mut input_string = String::new();
         for line in io::stdin().lock().lines() {
             input_string = format!("{}\n{}", input_string, line?);
@@ -88,6 +100,25 @@ impl TimewarriorData {
         Self::from_string(input_string.trim().into())
     }
 
+    /// Read the report from a given string
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use timewarrior_report::TimewarriorData;
+    ///
+    /// let report_data = TimewarriorData::from_string("test: test\n\n[]".into()).unwrap();
+    /// assert_eq!(
+    ///     report_data,
+    ///     TimewarriorData {
+    ///         config: [("test".to_string(), "test".to_string())]
+    ///             .iter()
+    ///             .cloned()
+    ///             .collect(),
+    ///         sessions: Vec::new(),
+    ///     }
+    /// );
+    /// ```
     pub fn from_string(input: String) -> Result<Self, ReportError> {
         let input_vec = &input.split("\n\n").collect::<Vec<&str>>();
         let mut config = HashMap::new();
@@ -101,16 +132,22 @@ impl TimewarriorData {
         })
     }
 }
-
+/// A tracked session from Timewarrior
 #[derive(Debug, Deserialize, Eq)]
 pub struct Session {
+    /// ID of the session within Timewarrior
     pub id: usize,
+    /// Start time of the session
     #[serde(with = "my_date_format")]
     pub start: DateTime<Local>,
+    /// End time of the session. `Some(DateTime<Local>)` if it did end, `None` otherwise.
     #[serde(default)]
     #[serde(with = "my_optional_date_format")]
     pub end: Option<DateTime<Local>>,
+    /// Tags attached to the session
     pub tags: Vec<String>,
+    /// Annotation of the session. `Some(String)` if the session has an annotation, `None`
+    /// otherwise.
     pub annotation: Option<String>,
 }
 
@@ -143,7 +180,32 @@ impl Session {
 }
 
 pub fn run() -> Result<(), ReportError> {
-    let data = TimewarriorData::from_std()?;
+    let data = TimewarriorData::from_stdin()?;
     dbg!(data);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple_test() {
+        assert!(true);
+    }
+
+    #[test]
+    fn test_create_simple_timewarrior_data() {
+        let report_data = TimewarriorData::from_string("test: test\n\n[]".into()).unwrap();
+        assert_eq!(
+            report_data,
+            TimewarriorData {
+                config: [("test".to_string(), "test".to_string())]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                sessions: Vec::new(),
+            }
+        );
+    }
 }
