@@ -203,6 +203,28 @@ mod tests {
     }
 
     #[test]
+    fn create_session_without_minial_data() {
+        let test_session = serde_json::from_str::<Session>(
+            "{\"id\":1,\"start\":\"20210711T103400Z\",\"tags\":[]}",
+        )
+        .unwrap();
+        assert_eq!(
+            test_session,
+            Session {
+                id: 1,
+                start: DateTime::<Utc>::from_utc(
+                    NaiveDate::from_ymd(2021, 07, 11).and_hms(10, 34, 00),
+                    Utc
+                )
+                .with_timezone(&Local),
+                end: None,
+                tags: vec![],
+                annotation: None,
+            }
+        );
+    }
+
+    #[test]
     fn create_session_without_end_date() {
         let test_session = serde_json::from_str::<Session>(
             "{\"id\":1,\"start\":\"20210711T103400Z\",\"tags\":[\"test\"],\"annotation\":\"this is a test\"}",
