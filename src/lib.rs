@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use serde::Deserialize;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt;
 use std::io::{self, BufRead};
 
@@ -59,9 +60,31 @@ fn default_end_time() -> DateTime<Local> {
 
 #[derive(Debug)]
 pub struct TimewarriorData {
-    // TODO: Make this a HashMap to be actually useful
-    pub config: String,
+    pub config: HashMap<String, String>,
     pub sessions: Vec<Session>,
+}
+
+impl TimewarriorData {
+    pub fn from_std() -> Result<Self, ReportError> {
+        let mut input_string = String::new();
+        for line in io::stdin().lock().lines() {
+            input_string = format!("{}\n{}", input_string, line?);
+        }
+        Self::from_string(input_string.trim().into())
+    }
+
+    pub fn from_string(input: String) -> Result<Self, ReportError> {
+        let input_vec = &input.split("\n\n").collect::<Vec<&str>>();
+        let mut config = HashMap::new();
+        for line in input_vec[0].lines() {
+            let setting = line.split(": ").collect::<Vec<&str>>();
+            config.insert(setting[0].into(), setting[1].into());
+        }
+        Ok(TimewarriorData {
+            config,
+            sessions: Session::from_json(&input_vec[1])?,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, Eq)]
@@ -71,6 +94,7 @@ pub struct Session {
     pub start: DateTime<Local>,
     #[serde(with = "my_date_format")]
     #[serde(default = "default_end_time")]
+    // TODO: Make an end time optional!
     pub end: DateTime<Local>,
     pub tags: Vec<String>,
     pub annotation: Option<String>,
@@ -104,29 +128,8 @@ impl Session {
     }
 }
 
-pub fn get_data() -> Result<TimewarriorData, ReportError> {
-    let mut config = String::new();
-    let mut sessions_raw = String::new();
-    let mut config_done = false;
-    for line in io::stdin().lock().lines() {
-        let raw_line = line?;
-        if raw_line.is_empty() {
-            config_done = true;
-        } else if !config_done {
-            config = format!("{}\n{}", config, raw_line);
-        } else {
-            sessions_raw = format!("{}{}", sessions_raw, raw_line);
-        }
-    }
-
-    Ok(TimewarriorData {
-        config,
-        sessions: Session::from_json(&sessions_raw)?,
-    })
-}
-
 pub fn run() -> Result<(), ReportError> {
-    let data = get_data()?;
+    let data = TimewarriorData::from_std()?;
     dbg!(data);
     Ok(())
 }
