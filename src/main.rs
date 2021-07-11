@@ -1,3 +1,3 @@
 fn main() {
-    timewarrior_report::run().unwrap();
+    dbg!(timewarrior_report::TimewarriorData::from_stdin().unwrap());
 }

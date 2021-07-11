@@ -5,10 +5,14 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io::{self, BufRead};
 
+/// An enum to represent errors occurring while processing report data from Timewarrior
 #[derive(Debug)]
 pub enum ReportError {
+    /// An error, which occurred while parsing data from standard in
     IO(String),
+    /// An error, which occurred while deserializing or serializing a session from JSON
     SerdeJson(String),
+    /// Some other error
     Other(String),
 }
 
@@ -179,23 +183,12 @@ impl Session {
     }
 }
 
-pub fn run() -> Result<(), ReportError> {
-    let data = TimewarriorData::from_stdin()?;
-    dbg!(data);
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn simple_test() {
-        assert!(true);
-    }
-
-    #[test]
-    fn test_create_simple_timewarrior_data() {
+    fn create_simple_timewarrior_data() {
         let report_data = TimewarriorData::from_string("test: test\n\n[]".into()).unwrap();
         assert_eq!(
             report_data,
@@ -205,6 +198,56 @@ mod tests {
                     .cloned()
                     .collect(),
                 sessions: Vec::new(),
+            }
+        );
+    }
+
+    #[test]
+    fn create_session_without_end_date() {
+        let test_session = serde_json::from_str::<Session>(
+            "{\"id\":1,\"start\":\"20210711T103400Z\",\"tags\":[\"test\"],\"annotation\":\"this is a test\"}",
+        )
+        .unwrap();
+        assert_eq!(
+            test_session,
+            Session {
+                id: 1,
+                start: DateTime::<Utc>::from_utc(
+                    NaiveDate::from_ymd(2021, 07, 11).and_hms(10, 34, 00),
+                    Utc
+                )
+                .with_timezone(&Local),
+                end: None,
+                tags: vec!["test".to_string()],
+                annotation: Some("this is a test".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn create_session_with_end_date() {
+        let test_session = serde_json::from_str::<Session>(
+            "{\"id\":1,\"start\":\"20210711T103400Z\",\"end\":\"20210711T113400Z\",\"tags\":[\"test\"],\"annotation\":\"this is a test\"}",
+        )
+        .unwrap();
+        assert_eq!(
+            test_session,
+            Session {
+                id: 1,
+                start: DateTime::<Utc>::from_utc(
+                    NaiveDate::from_ymd(2021, 07, 11).and_hms(10, 34, 00),
+                    Utc
+                )
+                .with_timezone(&Local),
+                end: Some(
+                    DateTime::<Utc>::from_utc(
+                        NaiveDate::from_ymd(2021, 07, 11).and_hms(11, 34, 00),
+                        Utc
+                    )
+                    .with_timezone(&Local)
+                ),
+                tags: vec!["test".to_string()],
+                annotation: Some("this is a test".to_string()),
             }
         );
     }
