@@ -54,8 +54,23 @@ mod my_date_format {
     }
 }
 
-fn default_end_time() -> DateTime<Local> {
-    Local::now()
+mod my_optional_date_format {
+    use chrono::{DateTime, Local, TimeZone, Utc};
+    use serde::{self, Deserialize, Deserializer};
+
+    const FORMAT: &str = "%Y%m%dT%H%M%SZ";
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<DateTime<Local>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Some(
+            Utc.datetime_from_str(&s, FORMAT)
+                .map_err(serde::de::Error::custom)?
+                .with_timezone(&Local),
+        ))
+    }
 }
 
 #[derive(Debug)]
@@ -92,10 +107,9 @@ pub struct Session {
     pub id: usize,
     #[serde(with = "my_date_format")]
     pub start: DateTime<Local>,
-    #[serde(with = "my_date_format")]
-    #[serde(default = "default_end_time")]
-    // TODO: Make an end time optional!
-    pub end: DateTime<Local>,
+    #[serde(default)]
+    #[serde(with = "my_optional_date_format")]
+    pub end: Option<DateTime<Local>>,
     pub tags: Vec<String>,
     pub annotation: Option<String>,
 }
